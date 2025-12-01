@@ -1,0 +1,1 @@
+gcc -Wall -Wextra -g -I./raylib -L./raylib ./src/*.c -o main -lraylib -lgdi32 -lwinmm
