@@ -50,18 +50,18 @@ void draw_field(int root_x, int root_y) {
 typedef struct Block {
     Color color;
     int n_cells;
-    Vector2* cell_coords;
+    const Vector2* cell_coords;
 } Block;
 
 #define BLOCK_2X2(clr)       \
     ((Block){.color = (clr), \
              .n_cells = 4,   \
-             .cell_coords = (Vector2[]){{0, 0}, {1, 0}, {0, 1}, {1, 1}}})
+             .cell_coords = (const Vector2[]){{0, 0}, {1, 0}, {0, 1}, {1, 1}}})
 
 #define BLOCK_L(clr)       \
     ((Block){.color = (clr), \
              .n_cells = 4,   \
-             .cell_coords = (Vector2[]){{0, 0}, {1, 1}, {0, 1}, {0, -1}}})
+             .cell_coords = (const Vector2[]){{0, 0}, {1, 1}, {0, 1}, {0, -1}}})
 
 void draw_block_cell(Vector2 pos, Color color) {
     DrawRectangleV(pos, (Vector2){BLOCK_CELL_HEIGHT, BLOCK_CELL_WIDTH},
