@@ -254,8 +254,6 @@ int main(void) {
 
     int rotation = 0;
 
-    char rot_text_buf[16];
-
     while (!WindowShouldClose()) {
         Vector2 mouse_field_coords = project_mouse_on_board(
             (Vector2){board_x, board_y}, GetMousePosition());
@@ -264,7 +262,6 @@ int main(void) {
 
         float wheel = GetMouseWheelMove();
         rotation = (unsigned int)(rotation + wheel) % 4;
-        sprintf(rot_text_buf, "Rotation: %d", rotation);
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
             vector_in_field_bounds(mouse_field_coords)) {
@@ -283,8 +280,6 @@ int main(void) {
 
         ClearBackground(RAYWHITE);
         draw_field(board_x, board_y);
-
-        DrawText(rot_text_buf, 10, 10, 36, BLACK);
 
         if (vector_in_field_bounds(mouse_field_coords)) {
             Vector2 clamped_pos = clamp_block_pos_to_field(
