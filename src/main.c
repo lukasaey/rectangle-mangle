@@ -240,8 +240,7 @@ int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 800;
 
-    InitWindow(screenWidth, screenHeight,
-               "raylib [core] example - basic window");
+    InitWindow(screenWidth, screenHeight, "block blast");
 
     SetTargetFPS(60);
 
