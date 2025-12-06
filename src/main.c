@@ -240,14 +240,10 @@ void draw_field(int root_x, int root_y) {
 }
 
 int main(void) {
-    // Vector2 v = {.x = 0, .y = 1};
-    // int x = vector_field_index(v);
-    // printf("%g %g : %d\n", v.x, v.y, x);
-    // return 0;
     const int screenWidth = 800;
     const int screenHeight = 800;
 
-    InitWindow(screenWidth, screenHeight, "block blast");
+    InitWindow(screenWidth, screenHeight, "rectangle mangle");
 
     SetTargetFPS(60);
 
