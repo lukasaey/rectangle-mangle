@@ -1,6 +1,8 @@
 #if !defined(CONSTANTS_H)
 #define CONSTANTS_H
 
+#include <raylib.h>
+
 #define FIELD_SIZE 8
 #define FIELD_WIDTH 500
 #define FIELD_HEIGHT 500
@@ -16,7 +18,21 @@
 #define BLOCK_CELL_WIDTH FIELD_CELL_WIDTH
 #define BLOCK_CELL_BORDER_THICKNESS (6)
 
-#define EMPTY_CELL_COLOR ColorBrightness(LIGHTGRAY, -0.225f)
+#define EMPTY_CELL_COLOR LIGHTGRAY
 #define FIELD_BORDER_COLOR DARKGRAY
+
+typedef enum FieldCellItem {
+    CELL_ITEM_EMPTY,
+    CELL_ITEM_BLUE,
+    CELL_ITEM_GREEN,
+    CELL_ITEM_YELLOW,
+} FieldCellItem;
+
+static const Color field_cell_item_lookup[] = {
+    [CELL_ITEM_EMPTY] = EMPTY_CELL_COLOR,
+    [CELL_ITEM_BLUE] = BLUE,
+    [CELL_ITEM_GREEN] = GREEN,
+    [CELL_ITEM_YELLOW] = YELLOW,
+};
 
 #endif // CONSTANTS_H

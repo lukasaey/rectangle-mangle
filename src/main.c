@@ -71,11 +71,11 @@ void draw_block(const Block* block, Vector2 pos, bool transparent) {
                     get_block_cell_coord(block, i),
                     (Vector2){BLOCK_CELL_WIDTH + FIELD_BORDER_THICKNESS,
                               BLOCK_CELL_HEIGHT + FIELD_BORDER_THICKNESS})),
-            block->color, transparent);
+            field_cell_item_lookup[block->item], transparent);
     }
 }
 
-void draw_field(Color *field, int root_x, int root_y) {
+void draw_field(FieldCellItem *field, int root_x, int root_y) {
     DrawRectangle(root_x, root_y, FIELD_WIDTH, FIELD_HEIGHT,
                   FIELD_BORDER_COLOR);
     for (int i = 0; i < FIELD_SIZE * FIELD_SIZE; ++i) {
@@ -85,13 +85,15 @@ void draw_field(Color *field, int root_x, int root_y) {
             apply_board_offset(root_y) +
                 (i / FIELD_SIZE) *
                     (FIELD_CELL_HEIGHT + FIELD_BORDER_THICKNESS)};
-        if (ColorIsEqual(field[i], EMPTY_CELL_COLOR)) {
-            draw_field_cell(cell_pos, field[i], false);
+        Color color = field_cell_item_lookup[field[i]];
+        if (field[i] == CELL_ITEM_EMPTY) {
+            draw_field_cell(cell_pos, color, false);
         } else {
-            draw_block_cell(cell_pos, field[i], false);
+            draw_block_cell(cell_pos, color, false);
         }
     }
 }
+
 
 int main(void) {
     const int screenWidth = 800;
@@ -101,10 +103,10 @@ int main(void) {
 
     SetTargetFPS(60);
 
-    Color field[FIELD_SIZE * FIELD_SIZE];
+    FieldCellItem field[FIELD_SIZE * FIELD_SIZE];
 
     for (int i = 0; i < FIELD_SIZE * FIELD_SIZE; ++i) {
-        field[i] = EMPTY_CELL_COLOR;
+        field[i] = CELL_ITEM_EMPTY;
     }
 
     int board_x = 150;
@@ -116,7 +118,7 @@ int main(void) {
         Vector2 mouse_field_coords = project_mouse_on_board(
             (Vector2){board_x, board_y}, GetMousePosition());
 
-        Block temp_block = BLOCK_L(YELLOW, rotation);
+        Block temp_block = BLOCK_L(CELL_ITEM_YELLOW, rotation);
 
         float wheel = GetMouseWheelMove();
         rotation = (unsigned int)(rotation + wheel) % 4;
@@ -130,7 +132,7 @@ int main(void) {
                     Vector2 cell_pos = Vector2Add(
                         clamped_coords, get_block_cell_coord(&temp_block, i));
                     int index = vector_field_index(cell_pos);
-                    field[index] = temp_block.color;
+                    field[index] = temp_block.item;
                 }
             }
         }
