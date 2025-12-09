@@ -6,6 +6,9 @@
 #include "constants.h"
 #include "raylib.h"
 #include "raymath.h"
+
+#include "block.h"
+#include "constants.h"
 #include "vector_fns.h"
 
 static inline float apply_board_offset(float v) {
@@ -72,7 +75,7 @@ void draw_block(const Block* block, Vector2 pos, bool transparent) {
     }
 }
 
-void draw_field(Color* field, int root_x, int root_y) {
+void draw_field(Color *field, int root_x, int root_y) {
     DrawRectangle(root_x, root_y, FIELD_WIDTH, FIELD_HEIGHT,
                   FIELD_BORDER_COLOR);
     for (int i = 0; i < FIELD_SIZE * FIELD_SIZE; ++i) {
