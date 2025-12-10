@@ -26,7 +26,10 @@ typedef enum FieldCellItem {
     CELL_ITEM_BLUE,
     CELL_ITEM_GREEN,
     CELL_ITEM_YELLOW,
+    CELL_ITEMS_N,
 } FieldCellItem;
+
+#define CELL_COLORS_N (CELL_ITEMS_N-1)
 
 static const Color field_cell_item_lookup[] = {
     [CELL_ITEM_EMPTY] = EMPTY_CELL_COLOR,

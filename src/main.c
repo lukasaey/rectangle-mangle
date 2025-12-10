@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "block.h"
 #include "constants.h"
@@ -94,6 +95,52 @@ void draw_field(FieldCellItem *field, int root_x, int root_y) {
     }
 }
 
+void set_field_row(FieldCellItem *field, int row, FieldCellItem item) {
+    assert(row >= 0 && row < FIELD_SIZE);
+    for (int i = 0; i < FIELD_SIZE; ++i) {
+        field[row*FIELD_SIZE + i] = item;
+    }
+}
+
+void set_field_col(FieldCellItem *field, int col, FieldCellItem item) {
+    assert(col >= 0 && col < FIELD_SIZE);
+    for (int i = 0; i < FIELD_SIZE; ++i) {
+        field[i*FIELD_SIZE + col] = item;
+    }
+}
+
+// returns the amount of points earned
+int clear_field(FieldCellItem *field) {
+    int points_earned = 0;
+
+    for (int i = 0; i < FIELD_SIZE; ++i) {
+        int line_count_x = 0;
+        int line_count_y = 0;
+
+        for (int j = 0; j < FIELD_SIZE; ++j) {
+            if (field[i*FIELD_SIZE + j] != CELL_ITEM_EMPTY) {
+                line_count_x++;
+            }
+        }
+        if (line_count_x == FIELD_SIZE) {
+            set_field_row(field, i, CELL_ITEM_EMPTY);
+            points_earned += line_count_x;
+        }
+        for (int j = 0; j < FIELD_SIZE; ++j) {
+            if (field[j*FIELD_SIZE + i] != CELL_ITEM_EMPTY) {
+                line_count_y++;
+            }
+        }
+        if (line_count_y == FIELD_SIZE) {
+            set_field_col(field, i, CELL_ITEM_EMPTY);
+            points_earned += line_count_y;
+        }
+        line_count_x = 0;   
+        line_count_y = 0;
+    }
+    return points_earned;
+}
+
 
 int main(void) {
     const int screenWidth = 800;
@@ -110,15 +157,18 @@ int main(void) {
     }
 
     int board_x = 150;
-    int board_y = 50;
+    int board_y = 100;
 
     int rotation = 0;
+
+    int points = 0;
+    char points_buf[32];
 
     while (!WindowShouldClose()) {
         Vector2 mouse_field_coords = project_mouse_on_board(
             (Vector2){board_x, board_y}, GetMousePosition());
 
-        Block temp_block = BLOCK_L(CELL_ITEM_YELLOW, rotation);
+        Block temp_block = BLOCK_2X2(CELL_ITEM_YELLOW, rotation);
 
         float wheel = GetMouseWheelMove();
         rotation = (unsigned int)(rotation + wheel) % 4;
@@ -134,13 +184,18 @@ int main(void) {
                     int index = vector_field_index(cell_pos);
                     field[index] = temp_block.item;
                 }
+                points += clear_field(field);
             }
         }
+
+        sprintf(points_buf, "Points: %d", points);
 
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
         draw_field(field, board_x, board_y);
+
+        DrawText(points_buf, 20, 20, 32, BLACK);
 
         if (vector_in_field_bounds(mouse_field_coords)) {
             Vector2 clamped_coords = clamp_block_pos_to_field(

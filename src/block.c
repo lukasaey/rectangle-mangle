@@ -1,4 +1,7 @@
 #include "block.h"
+
+#include <stdlib.h>
+
 #include "constants.h"
 #include "vector_fns.h"
 
@@ -6,10 +9,12 @@ Vector2 get_block_cell_coord(const Block* block, int i) {
     return Vector2Rotate(block->cell_coords[i], PI * 0.5 * block->rotation);
 }
 
-bool placed_block_space_free(FieldCellItem* field, Vector2 coords, const Block* block) {
+bool placed_block_space_free(FieldCellItem* field, Vector2 coords,
+                             const Block* block) {
     for (int i = 0; i < block->n_cells; ++i) {
         Vector2 cell_pos = Vector2Add(coords, get_block_cell_coord(block, i));
-        Color cell_color = field_cell_item_lookup[field[vector_field_index(cell_pos)]];
+        Color cell_color =
+            field_cell_item_lookup[field[vector_field_index(cell_pos)]];
         if (!ColorIsEqual(cell_color, EMPTY_CELL_COLOR)) {
             return false;
         }
@@ -40,4 +45,19 @@ Vector2 clamp_block_pos_to_field(Vector2 coords, const Block* block) {
     return coords;
 }
 
-
+Block get_random_block_type(FieldCellItem item, int rotation) {
+    const Block choices[] = {
+        BLOCK_1x4(item, rotation), BLOCK_1x5(item, rotation),
+        BLOCK_2X2(item, rotation), BLOCK_2X3(item, rotation),
+        BLOCK_3X2(item, rotation), BLOCK_3X3(item, rotation),
+        BLOCK_L(item, rotation),
+    };
+    return choices[rand() % (sizeof(choices) / sizeof(choices[0]))];
+}
+#include <stdio.h>
+Block get_random_block() {
+    int rotation = rand() % 4;
+    FieldCellItem item = CELL_ITEM_BLUE; // (rand() % CELL_COLORS_N) + 1;
+    printf("%d\n", item);
+    return get_random_block_type(item, rotation);
+}

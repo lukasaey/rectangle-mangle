@@ -17,6 +17,8 @@ Vector2 get_block_cell_coord(const Block* block, int i);
 bool placed_block_space_free(FieldCellItem* field, Vector2 coords, const Block* block);
 bool placed_block_fits_in_field(Vector2 coords, const Block* block);
 Vector2 clamp_block_pos_to_field(Vector2 coords, const Block* block);
+Block get_random_block_type(FieldCellItem item, int rotation);
+Block get_random_block();
 
 #define BLOCK_2X2(itm, rot) \
     ((Block){               \
