@@ -1,1 +1,1 @@
-gcc -Wall -Wextra -g -I./raylib -L./raylib ./src/main.c ./src/block.c -o main -lraylib -lgdi32 -lwinmm
+gcc -Wall -Wextra -std=c11 -g -I./raylib -L./raylib ./src/main.c ./src/block.c -o main -lraylib -lgdi32 -lwinmm

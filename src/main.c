@@ -41,26 +41,30 @@ void draw_field_cell(Vector2 pos, Color color, bool transparent) {
                    ColorBrightness(mod_color, -0.225f));
 }
 
-void draw_block_cell(Vector2 pos, Color color, bool transparent) {
+void draw_block_cell(Vector2 pos, Color color, bool transparent, float scale) {
     Color mod_color = ColorAlpha(color, transparent ? 0.5f : 1.0f);
 
-    DrawRectangleV(pos, (Vector2){BLOCK_CELL_WIDTH, BLOCK_CELL_HEIGHT},
-                   ColorBrightness(mod_color, -0.3f));
-    DrawRectangleV(pos,
-                   Vector2Add((Vector2){BLOCK_CELL_WIDTH, BLOCK_CELL_HEIGHT},
-                              (Vector2){-(BLOCK_CELL_BORDER_THICKNESS),
+    Vector2 cell_size =
+        Vector2Scale((Vector2){BLOCK_CELL_WIDTH, BLOCK_CELL_HEIGHT}, scale);
+
+    DrawRectangleV(pos, cell_size, ColorBrightness(mod_color, -0.3f));
+    DrawRectangleV(
+        pos,
+        Vector2Add(cell_size, (Vector2){-(BLOCK_CELL_BORDER_THICKNESS),
                                         -(BLOCK_CELL_BORDER_THICKNESS)}),
-                   ColorBrightness(mod_color, 0));
+        ColorBrightness(mod_color, 0));
     DrawRectangleV(
         Vector2Add(pos, (Vector2){(BLOCK_CELL_BORDER_THICKNESS * 2) / 2,
                                   (BLOCK_CELL_BORDER_THICKNESS * 2) / 2}),
-        Vector2Add((Vector2){BLOCK_CELL_WIDTH, BLOCK_CELL_HEIGHT},
-                   (Vector2){-(BLOCK_CELL_BORDER_THICKNESS * 2),
-                             -(BLOCK_CELL_BORDER_THICKNESS * 2)}),
+        Vector2Add(cell_size, (Vector2){-(BLOCK_CELL_BORDER_THICKNESS * 2),
+                                        -(BLOCK_CELL_BORDER_THICKNESS * 2)}),
         ColorBrightness(mod_color, -0.075f));
 }
 
-void draw_block(const Block* block, Vector2 pos, bool transparent) {
+void draw_block(const Block* block, Vector2 pos, bool transparent,
+                float scale) {
+    if (block->item == CELL_ITEM_EMPTY) return;
+
     CellCoords cell_coords = get_shape_coords(block->shape);
     for (int i = 0; i < cell_coords.len; ++i) {
         draw_block_cell(
@@ -68,9 +72,10 @@ void draw_block(const Block* block, Vector2 pos, bool transparent) {
                 pos,
                 Vector2Multiply(
                     get_block_cell_coord(block, i),
-                    (Vector2){BLOCK_CELL_WIDTH + FIELD_BORDER_THICKNESS,
-                              BLOCK_CELL_HEIGHT + FIELD_BORDER_THICKNESS})),
-            field_cell_item_color_lookup[block->item], transparent);
+                    (Vector2){
+                        (BLOCK_CELL_WIDTH + FIELD_BORDER_THICKNESS) * scale,
+                        (BLOCK_CELL_HEIGHT + FIELD_BORDER_THICKNESS) * scale})),
+            get_field_cell_color(block->item), transparent, scale);
     }
 }
 
@@ -84,11 +89,11 @@ void draw_field(FieldCellItem* field, int root_x, int root_y) {
             apply_board_offset(root_y) +
                 (i / FIELD_SIZE) *
                     (FIELD_CELL_HEIGHT + FIELD_BORDER_THICKNESS)};
-        Color color = field_cell_item_color_lookup[field[i]];
+        Color color = get_field_cell_color(field[i]);
         if (field[i] == CELL_ITEM_EMPTY) {
             draw_field_cell(cell_pos, color, false);
         } else {
-            draw_block_cell(cell_pos, color, false);
+            draw_block_cell(cell_pos, color, false, 1.0f);
         }
     }
 }
@@ -108,7 +113,7 @@ void set_field_col(FieldCellItem* field, int col, FieldCellItem item) {
 }
 
 // returns the amount of points earned
-int clear_field(FieldCellItem* field) {
+int clear_field(FieldCellItem* field, int combo) {
     int lines_cleared = 0;
     int points_earned = 0;
 
@@ -139,8 +144,10 @@ int clear_field(FieldCellItem* field) {
         line_count_x = 0;
         line_count_y = 0;
     }
-    return points_earned * lines_cleared;
+    return points_earned * lines_cleared * combo;
 }
+
+static inline int wrapping_mod(int n, int M) { return ((n % M) + M) % M; }
 
 int main(void) {
     const int screenWidth = 800;
@@ -157,22 +164,31 @@ int main(void) {
     }
 
     int board_x = 150;
-    int board_y = 100;
+    int board_y = 75;
 
     int points = 0;
-    char points_buf[32];
+    int combo = 1;
 
-    Block held_block = get_random_block();
+    int blocks_placed = 0;
+
+    Block held_blocks[] = {get_random_block(), get_random_block(),
+                           get_random_block()};
+    const int held_blocks_n = sizeof(held_blocks) / sizeof(*held_blocks);
+    int block_selected = 0;
 
     while (!WindowShouldClose()) {
         Vector2 mouse_field_coords = project_mouse_on_board(
             (Vector2){board_x, board_y}, GetMousePosition());
 
         float wheel = GetMouseWheelMove();
-        held_block.rotation = (unsigned int)(held_block.rotation + wheel) % 4;
+        block_selected =
+            wrapping_mod((block_selected + (int)wheel), held_blocks_n);
+
+        Block held_block = held_blocks[block_selected];
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
-            vector_in_field_bounds(mouse_field_coords)) {
+            vector_in_field_bounds(mouse_field_coords) &&
+            held_block.item != CELL_ITEM_EMPTY) {
             Vector2 clamped_coords = clamp_block_pos_to_field(
                 Vector2Floor(mouse_field_coords), &held_block);
             if (placed_block_space_free(field, clamped_coords, &held_block)) {
@@ -183,26 +199,53 @@ int main(void) {
                     int index = vector_field_index(cell_pos);
                     field[index] = held_block.item;
                 }
-                held_block = get_random_block();
-                points += clear_field(field);
+                blocks_placed++;
+                if (blocks_placed == 3) {
+                    blocks_placed = 0;
+                    for (int i = 0; i < held_blocks_n; ++i) {
+                        held_blocks[i] = get_random_block();
+                    }
+                } else {
+                    held_blocks[block_selected] = get_empty_block();
+                }
+                int points_obtained = clear_field(field, combo);
+                if (points_obtained > 0)
+                    combo++;
+                else
+                    combo = 1;
+                points += points_obtained;
             }
         }
 
+        char points_buf[32];
         sprintf(points_buf, "Points: %d", points);
+
+        char combo_buf[32];
+        sprintf(combo_buf, "Combo: %d", combo);
 
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
         draw_field(field, board_x, board_y);
 
-        DrawText(points_buf, 20, 20, 32, BLACK);
+        DrawText(points_buf, 20, 20, 30, BLACK);
+        DrawText(combo_buf, 20 + 20 + MeasureText(points_buf, 30), 20, 30,
+                 BLACK);
+
+        for (int i = 0; i < held_blocks_n; ++i) {
+            Vector2 pos = {
+                (screenWidth / (held_blocks_n + 1)) * (i + 1),
+                board_y + FIELD_CELL_HEIGHT * FIELD_SIZE + 75,
+            };
+            draw_block(&held_blocks[i], pos, false, 0.5f);
+        }
 
         if (vector_in_field_bounds(mouse_field_coords)) {
             Vector2 clamped_coords = clamp_block_pos_to_field(
                 Vector2Floor(mouse_field_coords), &held_block);
             Vector2 translated_pos = translate_board_coords(
                 (Vector2){board_x, board_y}, (clamped_coords));
-            draw_block(&held_block, translated_pos, true);
+            draw_block(&held_block, translated_pos, true, 1.0f);
         }
 
         EndDrawing();

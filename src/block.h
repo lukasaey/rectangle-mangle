@@ -13,6 +13,7 @@ typedef struct Block {
 } Block;
 
 Block get_random_block();
+Block get_empty_block();
 
 Vector2 get_block_cell_coord(const Block* block, int i);
 bool placed_block_space_free(FieldCellItem* field, Vector2 coords, const Block* block);
