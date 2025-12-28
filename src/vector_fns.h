@@ -19,7 +19,7 @@ static inline int vector_field_index(Vector2 v) {
 }
 
 static inline bool vector_in_field_bounds(Vector2 v) {
-    return v.x >= 0 && v.y >= 0 && v.x <= FIELD_SIZE && v.y <= FIELD_SIZE;
+    return v.x >= 0 && v.y >= 0 && v.x < FIELD_SIZE && v.y < FIELD_SIZE;
 }
 
 #endif // VECTOR_FNS_H
