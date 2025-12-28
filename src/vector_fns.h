@@ -10,6 +10,10 @@ static inline Vector2 Vector2Floor(Vector2 v) {
     return (Vector2){floorf(v.x), floorf(v.y)};
 }
 
+static inline Vector2 Vector2Round(Vector2 v) {
+    return (Vector2){roundf(v.x), roundf(v.y)};
+}
+
 static inline int vector_field_index(Vector2 v) {
     return roundf(v.x) + roundf(v.y) * FIELD_SIZE;
 }

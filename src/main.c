@@ -71,7 +71,7 @@ void draw_block(const Block* block, Vector2 pos, bool transparent,
             Vector2Add(
                 pos,
                 Vector2Multiply(
-                    get_block_cell_coord(block, i),
+                    get_block_cell_coord(block, i, 0),
                     (Vector2){
                         (BLOCK_CELL_WIDTH + FIELD_BORDER_THICKNESS) * scale,
                         (BLOCK_CELL_HEIGHT + FIELD_BORDER_THICKNESS) * scale})),
@@ -149,6 +149,34 @@ int clear_field(FieldCellItem* field, int combo) {
 
 static inline int wrapping_mod(int n, int M) { return ((n % M) + M) % M; }
 
+Vector2 snap_mouse_coords(Vector2 mouse_field_coords, const Block* block) {
+    Vector2 projected_mouse_coords = Vector2Scale(
+        Vector2SubtractValue(mouse_field_coords, FIELD_SIZE / 2.0f),
+        2.0f / FIELD_SIZE);
+
+    BlockAlignmentType alignment_type = get_block_alignment(block);
+    Vector2 offset = Vector2Zero();
+    switch (alignment_type) {
+        case BLOCK_ALIGNMENT_TYPE_MIDDLE:
+            offset = (Vector2){0.5, 0.5};
+            break;
+        case BLOCK_ALIGNMENT_TYPE_CORNER:
+            // nothing
+            break;
+        case BLOCK_ALIGNMENT_TYPE_EDGE:
+            offset = block->rotation % 2 == 0 ? (Vector2){0.5, 0.}
+                                              : (Vector2){0., 0.5};
+            break;
+    }
+    if (projected_mouse_coords.x < 0) offset.x = -offset.x;
+    if (projected_mouse_coords.y < 0) offset.y = -offset.y;
+
+    Vector2 rounded =
+        Vector2Round(Vector2Add(mouse_field_coords, projected_mouse_coords));
+    rounded = Vector2Add(rounded, offset);
+    return rounded;
+}
+
 int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 800;
@@ -164,7 +192,7 @@ int main(void) {
     }
 
     int board_x = 150;
-    int board_y = 75;
+    int board_y = 65;
 
     int points = 0;
     int combo = 1;
@@ -184,18 +212,27 @@ int main(void) {
         block_selected =
             wrapping_mod((block_selected + (int)wheel), held_blocks_n);
 
+        if (IsKeyPressed(KEY_R)) {
+            blocks_placed = 0;
+            for (int i = 0; i < held_blocks_n; ++i) {
+                held_blocks[i] = get_random_block();
+            }
+        }
+
         Block held_block = held_blocks[block_selected];
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
             vector_in_field_bounds(mouse_field_coords) &&
             held_block.item != CELL_ITEM_EMPTY) {
             Vector2 clamped_coords = clamp_block_pos_to_field(
-                Vector2Floor(mouse_field_coords), &held_block);
+                snap_mouse_coords(mouse_field_coords, &held_block),
+                &held_block);
             if (placed_block_space_free(field, clamped_coords, &held_block)) {
                 CellCoords cell_coords = get_shape_coords(held_block.shape);
                 for (int i = 0; i < cell_coords.len; ++i) {
-                    Vector2 cell_pos = Vector2Add(
-                        clamped_coords, get_block_cell_coord(&held_block, i));
+                    Vector2 cell_pos =
+                        Vector2Add(clamped_coords,
+                                   get_block_cell_coord(&held_block, i, 0));
                     int index = vector_field_index(cell_pos);
                     field[index] = held_block.item;
                 }
@@ -232,20 +269,37 @@ int main(void) {
         DrawText(combo_buf, 20 + 20 + MeasureText(points_buf, 30), 20, 30,
                  BLACK);
 
+        // small block previews on the bottom
         for (int i = 0; i < held_blocks_n; ++i) {
             Vector2 pos = {
                 (screenWidth / (held_blocks_n + 1)) * (i + 1),
-                board_y + FIELD_CELL_HEIGHT * FIELD_SIZE + 75,
+                board_y + FIELD_CELL_HEIGHT * FIELD_SIZE + 100,
             };
             draw_block(&held_blocks[i], pos, false, 0.5f);
         }
 
+        // held block
         if (vector_in_field_bounds(mouse_field_coords)) {
-            Vector2 clamped_coords = clamp_block_pos_to_field(
-                Vector2Floor(mouse_field_coords), &held_block);
-            Vector2 translated_pos = translate_board_coords(
-                (Vector2){board_x, board_y}, (clamped_coords));
-            draw_block(&held_block, translated_pos, true, 1.0f);
+            Vector2 clamped_coords_no_snap =
+                clamp_block_pos_to_field(mouse_field_coords, &held_block);
+
+            Vector2 clamped_coords_snap = clamp_block_pos_to_field(
+                snap_mouse_coords(mouse_field_coords, &held_block),
+                &held_block);
+
+            if (placed_block_space_free(field, clamped_coords_snap,
+                                        &held_block)) {
+                // the transparent preview of where the block will end up
+                draw_block(&held_block,
+                           translate_board_coords((Vector2){board_x, board_y},
+                                                  (clamped_coords_snap)),
+                           true, 1.0f);
+            }
+            // the non transparent block the player is holding with their mouse
+            draw_block(&held_block,
+                       translate_board_coords((Vector2){board_x, board_y},
+                                              (clamped_coords_no_snap)),
+                       false, 1.0f);
         }
 
         EndDrawing();
