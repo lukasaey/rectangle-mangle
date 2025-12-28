@@ -22,7 +22,7 @@ Block make_block(FieldCellItem item, BlockShape shape, int rotation);
 Block get_random_block();
 Block get_empty_block();
 
-Vector2 get_block_cell_coord(const Block* block, int i, int snap_direction);
+Vector2 get_block_cell_coord(const Block* block, int i);
 bool placed_block_space_free(FieldCellItem* field, Vector2 coords, const Block* block);
 bool placed_block_fits_in_field(Vector2 coords, const Block* block);
 BlockAlignmentType get_block_alignment(const Block* block);

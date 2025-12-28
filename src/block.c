@@ -50,7 +50,7 @@ static const CellCoords block_shape_cell_coords_lookup[] = {
                                  {-0.5, -2.5}, {-0.5, -1.5}, {-0.5, -0.5}, {-0.5, 0.5}, {-0.5, 1.5}}},
 };
 
-Vector2 get_block_cell_coord(const Block* block, int i, int snap_direction) {
+Vector2 get_block_cell_coord(const Block* block, int i) {
     CellCoords coords = get_shape_coords(block->shape);
     Vector2 coord = coords.cell_coords[i];
     Vector2 offset = Vector2Add(coord, (Vector2){0.5, 0.5});
@@ -63,7 +63,7 @@ bool placed_block_space_free(FieldCellItem* field, Vector2 coords,
     CellCoords cell_coords = get_shape_coords(block->shape);
     for (int i = 0; i < cell_coords.len; ++i) {
         Vector2 cell_pos =
-            Vector2Add(coords, get_block_cell_coord(block, i, 0));
+            Vector2Add(coords, get_block_cell_coord(block, i));
         Color cell_color =
             field_cell_item_color_lookup[field[vector_field_index(cell_pos)]];
         if (!ColorIsEqual(cell_color, EMPTY_CELL_COLOR)) {
@@ -77,7 +77,7 @@ bool placed_block_fits_in_field(Vector2 coords, const Block* block) {
     CellCoords cell_coords = get_shape_coords(block->shape);
     for (int i = 0; i < cell_coords.len; ++i) {
         Vector2 cell_pos =
-            Vector2Add(coords, get_block_cell_coord(block, i, 0));
+            Vector2Add(coords, get_block_cell_coord(block, i));
         if (!vector_in_field_bounds(cell_pos)) return false;
     }
     return true;
@@ -97,14 +97,16 @@ BlockAlignmentType get_block_alignment(const Block* block) {
             return BLOCK_ALIGNMENT_TYPE_EDGE;
         case BLOCK_SHAPE_1X5:
             return BLOCK_ALIGNMENT_TYPE_MIDDLE;
+        case BLOCK_SHAPES_N:
     }
+    assert(0 && "unreachable");
 }
 
 Vector2 clamp_block_pos_to_field(Vector2 coords, const Block* block) {
     CellCoords cell_coords = get_shape_coords(block->shape);
     for (int i = 0; i < cell_coords.len; ++i) {
         Vector2 cell_pos =
-            Vector2Add(coords, get_block_cell_coord(block, i, 0));
+            Vector2Add(coords, get_block_cell_coord(block, i));
         if (cell_pos.x < 0)
             coords.x += -cell_pos.x;
         else if (cell_pos.x > (FIELD_SIZE - 1))
