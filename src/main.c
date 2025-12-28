@@ -9,6 +9,15 @@
 #include "raymath.h"
 #include "vector_fns.h"
 
+typedef struct GameState {
+    FieldCellItem field[FIELD_SIZE * FIELD_SIZE];
+    int points;
+    int combo;
+    int blocks_placed;
+    int block_selected;
+    Block held_blocks[3];
+} GameState;
+
 static inline float apply_board_offset(float v) {
     return v + FIELD_BORDER_THICKNESS * 1.5;
 }
@@ -71,7 +80,7 @@ void draw_block(const Block* block, Vector2 pos, bool transparent,
             Vector2Add(
                 pos,
                 Vector2Multiply(
-                    get_block_cell_coord(block, i, 0),
+                    get_block_cell_coord(block, i),
                     (Vector2){
                         (BLOCK_CELL_WIDTH + FIELD_BORDER_THICKNESS) * scale,
                         (BLOCK_CELL_HEIGHT + FIELD_BORDER_THICKNESS) * scale})),
@@ -177,6 +186,62 @@ Vector2 snap_mouse_coords(Vector2 mouse_field_coords, const Block* block) {
     return rounded;
 }
 
+void handle_block_placement(GameState* state, Vector2 mouse_coords) {
+    const Block* held_block = &state->held_blocks[state->block_selected];
+
+    CellCoords cell_coords = get_shape_coords(held_block->shape);
+    // placing the block into the field
+    for (int i = 0; i < cell_coords.len; ++i) {
+        Vector2 cell_pos =
+            Vector2Add(mouse_coords, get_block_cell_coord(held_block, i));
+        int index = vector_field_index(cell_pos);
+        state->field[index] = held_block->item;
+    }
+
+    // held blocks handling
+    state->blocks_placed++;
+    if (state->blocks_placed == 3) {
+        state->blocks_placed = 0;
+        for (int i = 0; i < HELD_BLOCKS_N; ++i) {
+            state->held_blocks[i] = get_random_block();
+        }
+    } else {
+        state->held_blocks[state->block_selected] = get_empty_block();
+    }
+
+    // field clearing and adding points
+    int points_obtained = clear_field(state->field, state->combo);
+    if (points_obtained > 0)
+        state->combo++;
+    else
+        state->combo = 1;
+    state->points += points_obtained;
+}
+
+bool get_fuzzy_block_placement(const GameState* state, Vector2 location, Vector2 grid_clamped_location,
+                               Vector2* fuzzy_location_out) {
+    const Block* held_block = &state->held_blocks[state->block_selected];
+    
+    int starting_dx = location.x < 4.0f ? -1 : 1;
+    int ddx = location.x < 4.0f ? 1 : -1;
+
+    int starting_dy = location.y < 4.0f ? -1 : 1;
+    int ddy = location.y < 4.0f ? 1 : -1;
+
+    for (int dx = starting_dx; abs(dx - starting_dx) < 3; dx += ddx) {
+        for (int dy = starting_dy; abs(dy - starting_dy) < 3; dy += ddy) {
+            Vector2 new_location = Vector2Add(grid_clamped_location, (Vector2){dx, dy});
+            if (vector_in_field_bounds(new_location) &&
+                placed_block_space_free(state->field, new_location,
+                                        held_block)) {
+                *fuzzy_location_out = new_location;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 int main(void) {
     const int screenWidth = 800;
     const int screenHeight = 800;
@@ -185,97 +250,96 @@ int main(void) {
 
     SetTargetFPS(60);
 
-    FieldCellItem field[FIELD_SIZE * FIELD_SIZE];
+    GameState state = {
+        .points = 0,
+        .combo = 1,
+        .blocks_placed = 0,
+        .block_selected = 0,
+    };
 
     for (int i = 0; i < FIELD_SIZE * FIELD_SIZE; ++i) {
-        field[i] = CELL_ITEM_EMPTY;
+        state.field[i] = CELL_ITEM_EMPTY;
+    }
+
+    for (int i = 0; i < HELD_BLOCKS_N; ++i) {
+        state.held_blocks[i] = get_random_block();
     }
 
     int board_x = 150;
     int board_y = 65;
-
-    int points = 0;
-    int combo = 1;
-
-    int blocks_placed = 0;
-
-    Block held_blocks[] = {get_random_block(), get_random_block(),
-                           get_random_block()};
-    const int held_blocks_n = sizeof(held_blocks) / sizeof(*held_blocks);
-    int block_selected = 0;
 
     while (!WindowShouldClose()) {
         Vector2 mouse_field_coords = project_mouse_on_board(
             (Vector2){board_x, board_y}, GetMousePosition());
 
         float wheel = GetMouseWheelMove();
-        block_selected =
-            wrapping_mod((block_selected + (int)wheel), held_blocks_n);
+        state.block_selected =
+            wrapping_mod((state.block_selected + (int)wheel), HELD_BLOCKS_N);
+
+        // skip if an empty block is selected
+        while (state.held_blocks[state.block_selected].item ==
+               CELL_ITEM_EMPTY) {
+            state.block_selected =
+                wrapping_mod(state.block_selected + 1, HELD_BLOCKS_N);
+        }
 
         if (IsKeyPressed(KEY_R)) {
-            blocks_placed = 0;
-            for (int i = 0; i < held_blocks_n; ++i) {
-                held_blocks[i] = get_random_block();
+            state.blocks_placed = 0;
+            for (int i = 0; i < HELD_BLOCKS_N; ++i) {
+                state.held_blocks[i] = get_random_block();
             }
         }
 
-        Block held_block = held_blocks[block_selected];
+        Block held_block = state.held_blocks[state.block_selected];
 
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) &&
             vector_in_field_bounds(mouse_field_coords) &&
             held_block.item != CELL_ITEM_EMPTY) {
-            Vector2 clamped_coords = clamp_block_pos_to_field(
+            Vector2 clamped_mouse_coords = clamp_block_pos_to_field(
                 snap_mouse_coords(mouse_field_coords, &held_block),
                 &held_block);
-            if (placed_block_space_free(field, clamped_coords, &held_block)) {
-                CellCoords cell_coords = get_shape_coords(held_block.shape);
-                for (int i = 0; i < cell_coords.len; ++i) {
-                    Vector2 cell_pos =
-                        Vector2Add(clamped_coords,
-                                   get_block_cell_coord(&held_block, i, 0));
-                    int index = vector_field_index(cell_pos);
-                    field[index] = held_block.item;
-                }
-                blocks_placed++;
-                if (blocks_placed == 3) {
-                    blocks_placed = 0;
-                    for (int i = 0; i < held_blocks_n; ++i) {
-                        held_blocks[i] = get_random_block();
-                    }
-                } else {
-                    held_blocks[block_selected] = get_empty_block();
-                }
-                int points_obtained = clear_field(field, combo);
-                if (points_obtained > 0)
-                    combo++;
-                else
-                    combo = 1;
-                points += points_obtained;
+            Vector2 fuzzy_placement;
+            if (placed_block_space_free(state.field, clamped_mouse_coords,
+                                        &held_block)) {
+                handle_block_placement(&state, clamped_mouse_coords);
+            } else if (get_fuzzy_block_placement(&state, mouse_field_coords, clamped_mouse_coords,
+                                                 &fuzzy_placement)) {
+                handle_block_placement(&state, fuzzy_placement);
             }
         }
 
         char points_buf[32];
-        sprintf(points_buf, "Points: %d", points);
+        sprintf(points_buf, "Points: %d", state.points);
 
         char combo_buf[32];
-        sprintf(combo_buf, "Combo: %d", combo);
+        sprintf(combo_buf, "Combo: %d", state.combo);
 
         BeginDrawing();
 
         ClearBackground(RAYWHITE);
-        draw_field(field, board_x, board_y);
+        draw_field(state.field, board_x, board_y);
 
         DrawText(points_buf, 20, 20, 30, BLACK);
         DrawText(combo_buf, 20 + 20 + MeasureText(points_buf, 30), 20, 30,
                  BLACK);
 
         // small block previews on the bottom
-        for (int i = 0; i < held_blocks_n; ++i) {
+        for (int i = 0; i < HELD_BLOCKS_N; ++i) {
             Vector2 pos = {
-                (screenWidth / (held_blocks_n + 1)) * (i + 1),
+                (screenWidth / (HELD_BLOCKS_N + 1)) * (i + 1),
                 board_y + FIELD_CELL_HEIGHT * FIELD_SIZE + 100,
             };
-            draw_block(&held_blocks[i], pos, false, 0.5f);
+            draw_block(&state.held_blocks[i], pos, false, 0.5f);
+            if (state.block_selected == i) {
+                int size = 175;
+                Rectangle rec = {
+                    .x = pos.x - size/2,
+                    .y = pos.y - size/2,
+                    .height = size,
+                    .width = size,
+                };
+                DrawRectangleLinesEx(rec, 6.f, DARKPURPLE);
+            }
         }
 
         // held block
@@ -286,15 +350,22 @@ int main(void) {
             Vector2 clamped_coords_snap = clamp_block_pos_to_field(
                 snap_mouse_coords(mouse_field_coords, &held_block),
                 &held_block);
-
-            if (placed_block_space_free(field, clamped_coords_snap,
+            Vector2 fuzzy_coords;
+            // the transparent preview of where the block will end up
+            if (placed_block_space_free(state.field, clamped_coords_snap,
                                         &held_block)) {
-                // the transparent preview of where the block will end up
                 draw_block(&held_block,
                            translate_board_coords((Vector2){board_x, board_y},
                                                   (clamped_coords_snap)),
                            true, 1.0f);
+            } else if (get_fuzzy_block_placement(&state, mouse_field_coords, clamped_coords_snap,
+                                                 &fuzzy_coords)) {
+                draw_block(&held_block,
+                           translate_board_coords((Vector2){board_x, board_y},
+                                                  (fuzzy_coords)),
+                           true, 1.0f);
             }
+
             // the non transparent block the player is holding with their mouse
             draw_block(&held_block,
                        translate_board_coords((Vector2){board_x, board_y},

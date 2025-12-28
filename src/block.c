@@ -34,20 +34,22 @@ static const CellCoords block_shape_cell_coords_lookup[] = {
                                                     {-0.5, -1},
                                                     {0.5, -1},
                                                     {-1.5, -1}}},
-    [BLOCK_SHAPE_L] = {.len = 4,
-                       .cell_coords =
-                       // ###
-                       // #
-                           (Vector2[]){
-                               {-0.5, -0.5}, {0.5, -0.5}, {-1.5, -0.5}, {-1.5, 0.5}}},
+    [BLOCK_SHAPE_L] =
+        {.len = 4,
+         .cell_coords =
+             // ###
+             // #
+         (Vector2[]){{-0.5, -0.5}, {0.5, -0.5}, {-1.5, -0.5}, {-1.5, 0.5}}},
     [BLOCK_SHAPE_1X4] = {.len = 4,
                          .cell_coords =
                              (Vector2[]){
                                  {-0.5, 0}, {-0.5, -1}, {-0.5, -2}, {-0.5, 1}}},
     [BLOCK_SHAPE_1X5] = {.len = 5,
-                         .cell_coords =
-                             (Vector2[]){
-                                 {-0.5, -2.5}, {-0.5, -1.5}, {-0.5, -0.5}, {-0.5, 0.5}, {-0.5, 1.5}}},
+                         .cell_coords = (Vector2[]){{-0.5, -2.5},
+                                                    {-0.5, -1.5},
+                                                    {-0.5, -0.5},
+                                                    {-0.5, 0.5},
+                                                    {-0.5, 1.5}}},
 };
 
 Vector2 get_block_cell_coord(const Block* block, int i) {
@@ -58,15 +60,14 @@ Vector2 get_block_cell_coord(const Block* block, int i) {
     return Vector2Subtract(rot, (Vector2){0.5, 0.5});
 }
 
-bool placed_block_space_free(FieldCellItem* field, Vector2 coords,
+bool placed_block_space_free(const FieldCellItem* field, Vector2 coords,
                              const Block* block) {
     CellCoords cell_coords = get_shape_coords(block->shape);
     for (int i = 0; i < cell_coords.len; ++i) {
-        Vector2 cell_pos =
-            Vector2Add(coords, get_block_cell_coord(block, i));
-        Color cell_color =
-            field_cell_item_color_lookup[field[vector_field_index(cell_pos)]];
-        if (!ColorIsEqual(cell_color, EMPTY_CELL_COLOR)) {
+        Vector2 cell_pos = Vector2Add(coords, get_block_cell_coord(block, i));
+        
+        if (!vector_in_field_bounds(cell_pos) ||
+            field[vector_field_index(cell_pos)] != CELL_ITEM_EMPTY) {
             return false;
         }
     }
@@ -76,8 +77,7 @@ bool placed_block_space_free(FieldCellItem* field, Vector2 coords,
 bool placed_block_fits_in_field(Vector2 coords, const Block* block) {
     CellCoords cell_coords = get_shape_coords(block->shape);
     for (int i = 0; i < cell_coords.len; ++i) {
-        Vector2 cell_pos =
-            Vector2Add(coords, get_block_cell_coord(block, i));
+        Vector2 cell_pos = Vector2Add(coords, get_block_cell_coord(block, i));
         if (!vector_in_field_bounds(cell_pos)) return false;
     }
     return true;
@@ -105,8 +105,7 @@ BlockAlignmentType get_block_alignment(const Block* block) {
 Vector2 clamp_block_pos_to_field(Vector2 coords, const Block* block) {
     CellCoords cell_coords = get_shape_coords(block->shape);
     for (int i = 0; i < cell_coords.len; ++i) {
-        Vector2 cell_pos =
-            Vector2Add(coords, get_block_cell_coord(block, i));
+        Vector2 cell_pos = Vector2Add(coords, get_block_cell_coord(block, i));
         if (cell_pos.x < 0)
             coords.x += -cell_pos.x;
         else if (cell_pos.x > (FIELD_SIZE - 1))

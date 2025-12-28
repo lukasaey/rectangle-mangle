@@ -7,6 +7,8 @@
 #define FIELD_WIDTH 500
 #define FIELD_HEIGHT 500
 
+#define HELD_BLOCKS_N 3
+
 #define FIELD_BORDER_THICKNESS 1
 
 #define FIELD_CELL_HEIGHT \
