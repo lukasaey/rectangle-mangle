@@ -16,7 +16,26 @@ typedef struct GameState {
     int blocks_placed;
     int block_selected;
     Block held_blocks[3];
+    bool cleared_in_turn;
 } GameState;
+
+GameState make_gamestate() {
+    GameState state = {
+        .points = 0,
+        .combo = 1,
+        .blocks_placed = 0,
+        .block_selected = 0,
+        .cleared_in_turn = false,
+    };
+    for (int i = 0; i < FIELD_SIZE * FIELD_SIZE; ++i) {
+        state.field[i] = CELL_ITEM_EMPTY;
+    }
+
+    for (int i = 0; i < HELD_BLOCKS_N; ++i) {
+        state.held_blocks[i] = get_random_block();
+    }
+    return state;
+}
 
 static inline float apply_board_offset(float v) {
     return v + FIELD_BORDER_THICKNESS * 1.5;
@@ -188,6 +207,7 @@ Vector2 snap_mouse_coords(Vector2 mouse_field_coords, const Block* block) {
 
 void handle_block_placement(GameState* state, Vector2 mouse_coords) {
     const Block* held_block = &state->held_blocks[state->block_selected];
+    state->blocks_placed++;
 
     CellCoords cell_coords = get_shape_coords(held_block->shape);
     // placing the block into the field
@@ -198,10 +218,25 @@ void handle_block_placement(GameState* state, Vector2 mouse_coords) {
         state->field[index] = held_block->item;
     }
 
+    // field clearing and adding points
+    int points_obtained = clear_field(state->field, state->combo);
+
+    bool increase_combo = false;
+    if (points_obtained > 0) {
+        state->cleared_in_turn = true;
+        increase_combo = true;
+    }
+
+    if (increase_combo) {
+        state->combo += 1;
+    } else if (!state->cleared_in_turn && state->blocks_placed == 3) {
+        state->combo = 1;
+    }
+
     // held blocks handling
-    state->blocks_placed++;
     if (state->blocks_placed == 3) {
         state->blocks_placed = 0;
+        state->cleared_in_turn = false;
         for (int i = 0; i < HELD_BLOCKS_N; ++i) {
             state->held_blocks[i] = get_random_block();
         }
@@ -209,19 +244,14 @@ void handle_block_placement(GameState* state, Vector2 mouse_coords) {
         state->held_blocks[state->block_selected] = get_empty_block();
     }
 
-    // field clearing and adding points
-    int points_obtained = clear_field(state->field, state->combo);
-    if (points_obtained > 0)
-        state->combo++;
-    else
-        state->combo = 1;
     state->points += points_obtained;
 }
 
-bool get_fuzzy_block_placement(const GameState* state, Vector2 location, Vector2 grid_clamped_location,
+bool get_fuzzy_block_placement(const GameState* state, Vector2 location,
+                               Vector2 grid_clamped_location,
                                Vector2* fuzzy_location_out) {
     const Block* held_block = &state->held_blocks[state->block_selected];
-    
+
     int starting_dx = location.x < 4.0f ? -1 : 1;
     int ddx = location.x < 4.0f ? 1 : -1;
 
@@ -230,7 +260,8 @@ bool get_fuzzy_block_placement(const GameState* state, Vector2 location, Vector2
 
     for (int dx = starting_dx; abs(dx - starting_dx) < 3; dx += ddx) {
         for (int dy = starting_dy; abs(dy - starting_dy) < 3; dy += ddy) {
-            Vector2 new_location = Vector2Add(grid_clamped_location, (Vector2){dx, dy});
+            Vector2 new_location =
+                Vector2Add(grid_clamped_location, (Vector2){dx, dy});
             if (vector_in_field_bounds(new_location) &&
                 placed_block_space_free(state->field, new_location,
                                         held_block)) {
@@ -250,20 +281,7 @@ int main(void) {
 
     SetTargetFPS(60);
 
-    GameState state = {
-        .points = 0,
-        .combo = 1,
-        .blocks_placed = 0,
-        .block_selected = 0,
-    };
-
-    for (int i = 0; i < FIELD_SIZE * FIELD_SIZE; ++i) {
-        state.field[i] = CELL_ITEM_EMPTY;
-    }
-
-    for (int i = 0; i < HELD_BLOCKS_N; ++i) {
-        state.held_blocks[i] = get_random_block();
-    }
+    GameState state = make_gamestate();
 
     int board_x = 150;
     int board_y = 65;
@@ -284,10 +302,7 @@ int main(void) {
         }
 
         if (IsKeyPressed(KEY_R)) {
-            state.blocks_placed = 0;
-            for (int i = 0; i < HELD_BLOCKS_N; ++i) {
-                state.held_blocks[i] = get_random_block();
-            }
+            state = make_gamestate();
         }
 
         Block held_block = state.held_blocks[state.block_selected];
@@ -302,7 +317,8 @@ int main(void) {
             if (placed_block_space_free(state.field, clamped_mouse_coords,
                                         &held_block)) {
                 handle_block_placement(&state, clamped_mouse_coords);
-            } else if (get_fuzzy_block_placement(&state, mouse_field_coords, clamped_mouse_coords,
+            } else if (get_fuzzy_block_placement(&state, mouse_field_coords,
+                                                 clamped_mouse_coords,
                                                  &fuzzy_placement)) {
                 handle_block_placement(&state, fuzzy_placement);
             }
@@ -333,8 +349,8 @@ int main(void) {
             if (state.block_selected == i) {
                 int size = 175;
                 Rectangle rec = {
-                    .x = pos.x - size/2,
-                    .y = pos.y - size/2,
+                    .x = pos.x - size / 2,
+                    .y = pos.y - size / 2,
                     .height = size,
                     .width = size,
                 };
@@ -358,7 +374,8 @@ int main(void) {
                            translate_board_coords((Vector2){board_x, board_y},
                                                   (clamped_coords_snap)),
                            true, 1.0f);
-            } else if (get_fuzzy_block_placement(&state, mouse_field_coords, clamped_coords_snap,
+            } else if (get_fuzzy_block_placement(&state, mouse_field_coords,
+                                                 clamped_coords_snap,
                                                  &fuzzy_coords)) {
                 draw_block(&held_block,
                            translate_board_coords((Vector2){board_x, board_y},
