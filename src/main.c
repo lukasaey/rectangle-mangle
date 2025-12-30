@@ -291,14 +291,16 @@ int main(void) {
             (Vector2){board_x, board_y}, GetMousePosition());
 
         float wheel = GetMouseWheelMove();
+        int block_delta = (int)wheel;
         state.block_selected =
-            wrapping_mod((state.block_selected + (int)wheel), HELD_BLOCKS_N);
+            wrapping_mod((state.block_selected + block_delta), HELD_BLOCKS_N);
 
         // skip if an empty block is selected
+        if (block_delta == 0) block_delta = 1;
         while (state.held_blocks[state.block_selected].item ==
                CELL_ITEM_EMPTY) {
             state.block_selected =
-                wrapping_mod(state.block_selected + 1, HELD_BLOCKS_N);
+                wrapping_mod(state.block_selected + block_delta, HELD_BLOCKS_N);
         }
 
         if (IsKeyPressed(KEY_R)) {
